@@ -87,3 +87,46 @@ export async function findTopKEmbeddingsWithDate(
     return result.rows;
 }
 
+
+export async function findTopKEmbeddingsWithTags(
+    text: string,
+    score: number,
+    topK: number,
+    tags: string[]): Promise<any[]> {
+    const embedding = await getEmbedding(text);
+    const result = await client.query(
+        `SELECT 1 - (embedding <=> $1) as score,
+                *
+         FROM chunks
+         WHERE enabled = true
+           AND (tags && $4)
+           AND 1 - (embedding <=> $1) >= $2
+         ORDER BY score
+                 DESC
+         LIMIT $3`,
+        ["[" + embedding.join(",") + "]", score, topK, tags]
+    );
+    return result.rows;
+}
+
+export async function sendPrompt(ragPrompt: string): Promise<string> {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4-1106-preview",
+        messages: [
+            {
+                role: 'user',
+                content: ragPrompt
+            }
+        ],
+        temperature: 0.1,
+    });
+    return response.choices[0].message.content ?? '';
+}
+
+export async function sendPromptWithRag(topKDocuments: any[], prompt: string) {
+    const ragPrompt =
+        `Use the information between the <Document> tags to answer the question between the <Question> tag.
+        ${topKDocuments.map((doc: any) => `<Document>${doc.text}</Document>`).join("\n")}
+        <Question>${prompt}</Question>`
+    return await sendPrompt(ragPrompt);
+}
