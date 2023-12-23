@@ -1,12 +1,9 @@
 import {OpenAI} from 'openai';
-import {createChunksTable, getPgClient} from "./utils.ts";
+import {createChunksTable, getEmbedding, getOpenAI, getPgClient} from "./utils.ts";
 
 const client = getPgClient();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || '',
-    timeout: 30000
-});
+const openai = getOpenAI();
 
 const texts = [
     `Jean-Chrysostome Dolto, plus connu sous son nom de scène Carlos, né le 20 février 1943 dans le 5e arrondissement 
@@ -21,21 +18,8 @@ const texts = [
      propre (colliers de fleurs, chemises hawaïennes) similaire à celle d'un autre chanteur français, Antoine.`
 ];
 
-async function getEmbedding(text: string): Promise<Array<number>> {
-    try {
-        const response = await openai.embeddings.create({
-            input: text,
-            model: "text-embedding-ada-002"
-        });
-        return response.data[0]["embedding"];
-    } catch (error) {
-        console.error('Erreur lors de la récupération des embeddings:', error);
-        return [];
-    }
-}
-
 async function indexText(text: string) {
-    const embeddings = await getEmbedding(text);
+    const embeddings = await getEmbedding(openai, text);
     await client.query('INSERT INTO chunks (text, embedding) VALUES ($1, $2)', [text, "[" + embeddings.join(",") + "]"]);
 }
 
