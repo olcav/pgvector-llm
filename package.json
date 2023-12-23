@@ -1,0 +1,16 @@
+{
+  "name": "pgvector-llm",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/pg": "^8.10.9",
+    "openai": "^4.24.1",
+    "pg": "^8.11.3"
+  }
+}
