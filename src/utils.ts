@@ -40,7 +40,7 @@ export function createChunksTable(client: Client) {
 }
 
 
-export async function findTopKEmbeddings(text: string, score: number, topK: number): Promise<any> {
+export async function findTopKEmbeddings(text: string, score: number, topK: number): Promise<any[]> {
     const embedding = await getEmbedding(text);
     const result = await client.query(
         `SELECT 1 - (embedding <=> $1) as score,
@@ -52,6 +52,37 @@ export async function findTopKEmbeddings(text: string, score: number, topK: numb
                  DESC
          LIMIT $3`,
         ["[" + embedding.join(",") + "]", score, topK]
+    )
+    return result.rows;
+}
+
+
+export async function findTopKEmbeddingsWithDate(
+    text: string,
+    score: number,
+    topK: number,
+    delayDays: number,
+    gaussianSize: number): Promise<any[]> {
+    const embedding = await getEmbedding(text);
+    const result = await client.query(
+        `WITH Scores AS (
+            SELECT *,
+                   1 - (embedding <=> $1) AS original_score,
+                   EXTRACT(DAY FROM CURRENT_DATE - indexing_date) AS days_diff
+            FROM chunks
+            WHERE enabled = true
+        )
+         SELECT *,
+                original_score,
+                CASE
+                    WHEN days_diff >= $4 THEN original_score * EXP(-0.5 * ((days_diff - $4) / $5) ^ 2)
+                    ELSE original_score
+                    END AS adjusted_score
+         FROM Scores
+         WHERE adjusted_score >= $2
+         ORDER BY adjusted_score DESC
+         LIMIT $3`,
+        ["[" + embedding.join(",") + "]", score, topK, delayDays, gaussianSize]
     )
     return result.rows;
 }
